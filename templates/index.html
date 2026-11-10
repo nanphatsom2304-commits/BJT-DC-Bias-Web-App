@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BJT DC Bias Calculator — ENG29 2121</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>BJT Common-Emitter DC Bias</h1>
+    <p>Voltage-Divider Bias · Forward-Active Approximation</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-labelledby="input-heading">
+      <h2 id="input-heading">ค่าอุปกรณ์</h2>
+      <form id="bias-form" method="post" action="/calculate" novalidate>
+        <div class="field">
+          <label for="vcc">VCC (V)</label>
+          <input id="vcc" name="vcc" type="number" step="any" min="0"
+                 inputmode="decimal" required>
+        </div>
+
+        <div class="field">
+          <label for="r1">R1 (VCC → Base)</label>
+          <div class="input-row">
+            <input id="r1" name="r1" type="number" step="any" min="0"
+                   inputmode="decimal" required>
+            <select name="r1_unit" aria-label="หน่วยของ R1">
+              <option value="kohm" selected>kΩ</option>
+              <option value="ohm">Ω</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="r2">R2 (Base → GND)</label>
+          <div class="input-row">
+            <input id="r2" name="r2" type="number" step="any" min="0"
+                   inputmode="decimal" required>
+            <select name="r2_unit" aria-label="หน่วยของ R2">
+              <option value="kohm" selected>kΩ</option>
+              <option value="ohm">Ω</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="rc">RC (VCC → Collector)</label>
+          <div class="input-row">
+            <input id="rc" name="rc" type="number" step="any" min="0"
+                   inputmode="decimal" required>
+            <select name="rc_unit" aria-label="หน่วยของ RC">
+              <option value="kohm" selected>kΩ</option>
+              <option value="ohm">Ω</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="re">RE (Emitter → GND)</label>
+          <div class="input-row">
+            <input id="re" name="re" type="number" step="any" min="0"
+                   inputmode="decimal" required>
+            <select name="re_unit" aria-label="หน่วยของ RE">
+              <option value="kohm" selected>kΩ</option>
+              <option value="ohm">Ω</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="beta">β (hFE)</label>
+          <input id="beta" name="beta" type="number" step="any" min="0"
+                 inputmode="decimal" required>
+        </div>
+
+        <div class="field">
+          <label for="vbe">VBE (V)</label>
+          <input id="vbe" name="vbe" type="number" step="any" min="0" max="2"
+                 inputmode="decimal" required>
+        </div>
+
+        <p id="form-errors" class="form-errors" role="alert" hidden></p>
+        <button id="submit-btn" type="submit" class="primary">Calculate DC Bias</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="result-heading">
+      <h2 id="result-heading">DC Bias Results</h2>
+      <p id="results-placeholder" class="placeholder">
+        กรอกค่าอุปกรณ์แล้วกด Calculate DC Bias
+      </p>
+      <div id="results" hidden>
+        <p id="region-badge" class="badge"></p>
+        <div id="warnings" class="warnings" hidden></div>
+        <div id="result-tables"></div>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <p class="noscript">หน้านี้ต้องเปิดใช้งาน JavaScript เพื่อส่งค่ามาคำนวณและแสดงผล</p>
+  </noscript>
+</body>
+</html>
