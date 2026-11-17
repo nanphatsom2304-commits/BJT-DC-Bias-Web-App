@@ -1,6 +1,14 @@
 import unittest
 
-from dc_bias import DcBiasInputs, calculate_dc_bias, parse_inputs
+from dc_bias import (
+    DcBiasInputs,
+    EmitterBiasInputs,
+    FixedBiasInputs,
+    calculate_dc_bias,
+    calculate_emitter_bias,
+    calculate_fixed_bias,
+    parse_inputs,
+)
 
 
 RAW = {
@@ -71,6 +79,11 @@ class ParseInputsTest(unittest.TestCase):
         self.assertIsNone(inputs)
         self.assertIn("r1", errors)
 
+    def test_rejects_value_that_overflows_after_unit_conversion(self):
+        inputs, errors = parse_inputs(dict(RAW, r1="1e306", r1_unit="kohm"))
+        self.assertIsNone(inputs)
+        self.assertIn("r1", errors)
+
 
 class RegionTest(unittest.TestCase):
     def test_cutoff_when_vth_not_above_vbe(self):
@@ -103,3 +116,139 @@ class RegionTest(unittest.TestCase):
         result = calculate_dc_bias(inputs)
         for value in (result.ic_a, result.vce_v, result.vb_v):
             self.assertTrue(math.isfinite(value))
+
+
+class Lab3RegionTest(unittest.TestCase):
+    def test_vce_between_0_2_and_0_3_is_forward_active(self):
+        inputs, errors = parse_inputs(dict(RAW, rc="8.55", rc_unit="kohm"))
+        self.assertEqual(errors, {})
+        result = calculate_dc_bias(inputs)
+        self.assertEqual(result.mode, "divider")
+        self.assertAlmostEqual(result.vce_v, 0.2426, places=3)
+        self.assertEqual(result.region, "forward_active")
+        self.assertEqual(result.warnings, [])
+
+    def test_cutoff_warning_reports_base_current(self):
+        inputs, _ = parse_inputs(dict(RAW, r2="1", r2_unit="kohm"))
+        result = calculate_dc_bias(inputs)
+        self.assertLessEqual(result.ib_a, 0.0)
+        self.assertEqual(result.region, "cutoff")
+        self.assertTrue(any("IB" in text for text in result.warnings))
+
+
+class FixedBiasTest(unittest.TestCase):
+    def test_reference_case(self):
+        result = calculate_fixed_bias(FixedBiasInputs(
+            vcc_v=12.0, rb_ohm=1_000_000.0, rc_ohm=2_200.0,
+            beta=100.0, vbe_v=0.70,
+        ))
+        self.assertEqual(result.mode, "fixed")
+        self.assertIsNone(result.vth_v)
+        self.assertIsNone(result.rth_ohm)
+        self.assertAlmostEqual(result.ib_a * 1e6, 11.3000, places=4)
+        self.assertAlmostEqual(result.ic_a * 1e3, 1.13000, places=4)
+        self.assertAlmostEqual(result.ie_a * 1e3, 1.14130, places=4)
+        self.assertEqual(result.ve_v, 0.0)
+        self.assertAlmostEqual(result.vb_v, 0.70000, places=4)
+        self.assertAlmostEqual(result.vc_v, 9.51400, places=4)
+        self.assertAlmostEqual(result.vce_v, 9.51400, places=4)
+        self.assertEqual(result.region, "forward_active")
+        self.assertEqual(result.warnings, [])
+
+    def test_extreme_rb_stays_finite_with_sensible_region(self):
+        import math
+        cases = (
+            (1.0, "saturation"),
+            (1e12, "forward_active"),
+        )
+        for rb, expected_region in cases:
+            with self.subTest(rb=rb):
+                result = calculate_fixed_bias(FixedBiasInputs(
+                    vcc_v=12.0, rb_ohm=rb, rc_ohm=2_200.0,
+                    beta=100.0, vbe_v=0.70,
+                ))
+                for value in (result.ib_a, result.ic_a, result.vce_v):
+                    self.assertTrue(math.isfinite(value), rb)
+                self.assertEqual(result.region, expected_region)
+                if expected_region == "forward_active":
+                    self.assertEqual(result.warnings, [])
+                else:
+                    self.assertTrue(result.warnings)
+
+
+class EmitterBiasTest(unittest.TestCase):
+    def test_reference_case(self):
+        result = calculate_emitter_bias(EmitterBiasInputs(
+            vcc_v=12.0, rb_ohm=1_000_000.0, rc_ohm=2_200.0,
+            re_ohm=1_000.0, beta=100.0, vbe_v=0.70,
+        ))
+        self.assertEqual(result.mode, "emitter")
+        self.assertAlmostEqual(result.ib_a * 1e6, 10.2634, places=4)
+        self.assertAlmostEqual(result.ic_a * 1e3, 1.02634, places=4)
+        self.assertAlmostEqual(result.ie_a * 1e3, 1.03660, places=4)
+        self.assertAlmostEqual(result.ve_v, 1.03660, places=4)
+        self.assertAlmostEqual(result.vb_v, 1.73660, places=4)
+        self.assertAlmostEqual(result.vc_v, 9.74205, places=4)
+        self.assertAlmostEqual(result.vce_v, 8.70545, places=4)
+        self.assertEqual(result.region, "forward_active")
+        self.assertEqual(result.warnings, [])
+
+    def test_bigger_re_lowers_ic(self):
+        small = calculate_emitter_bias(EmitterBiasInputs(
+            vcc_v=12.0, rb_ohm=1_000_000.0, rc_ohm=2_200.0,
+            re_ohm=1_000.0, beta=100.0, vbe_v=0.70,
+        ))
+        big = calculate_emitter_bias(EmitterBiasInputs(
+            vcc_v=12.0, rb_ohm=1_000_000.0, rc_ohm=2_200.0,
+            re_ohm=2_000.0, beta=100.0, vbe_v=0.70,
+        ))
+        self.assertLess(big.ic_a, small.ic_a)
+        self.assertAlmostEqual(big.ib_a * 1e6, 9.4010, places=4)
+        self.assertAlmostEqual(big.ic_a * 1e3, 0.94010, places=4)
+        self.assertAlmostEqual(big.ie_a * 1e3, 0.94950, places=4)
+        self.assertAlmostEqual(big.ve_v, 1.89900, places=4)
+        self.assertAlmostEqual(big.vb_v, 2.59900, places=4)
+        self.assertAlmostEqual(big.vc_v, 9.93178, places=4)
+        self.assertAlmostEqual(big.vce_v, 8.03278, places=4)
+        self.assertEqual(big.warnings, [])
+
+
+class ModeParsingTest(unittest.TestCase):
+    FIXED = {"mode": "fixed", "vcc": "12", "rc": "2.2", "rc_unit": "kohm",
+             "rb": "1000", "rb_unit": "kohm", "beta": "100", "vbe": "0.7"}
+    EMITTER = dict(FIXED, mode="emitter", re="1", re_unit="kohm")
+
+    def test_fixed_ignores_divider_fields(self):
+        raw = dict(self.FIXED, r1="abc", r2="", re="oops", r1_unit="M")
+        inputs, errors = parse_inputs(raw, "fixed")
+        self.assertEqual(errors, {})
+        self.assertIsInstance(inputs, FixedBiasInputs)
+        self.assertEqual(inputs.rb_ohm, 1_000_000.0)
+
+    def test_fixed_requires_rb(self):
+        raw = dict(self.FIXED)
+        del raw["rb"]
+        inputs, errors = parse_inputs(raw, "fixed")
+        self.assertIsNone(inputs)
+        self.assertIn("rb", errors)
+
+    def test_emitter_requires_re(self):
+        raw = dict(self.EMITTER)
+        del raw["re"]
+        inputs, errors = parse_inputs(raw, "emitter")
+        self.assertIsNone(inputs)
+        self.assertIn("re", errors)
+
+    def test_unknown_mode_is_rejected(self):
+        inputs, errors = parse_inputs(dict(self.FIXED, mode="bridge"), "bridge")
+        self.assertIsNone(inputs)
+        self.assertIn("mode", errors)
+
+    def test_missing_rb_reports_missing_value(self):
+        raw = {"vcc": "12", "rc": "2.2", "rc_unit": "kohm",
+               "beta": "100", "vbe": "0.7"}
+        inputs, errors = parse_inputs(raw, "fixed")
+        self.assertIsNone(inputs)
+        self.assertEqual(errors["rb"], "กรุณากรอก RB")
+
+
