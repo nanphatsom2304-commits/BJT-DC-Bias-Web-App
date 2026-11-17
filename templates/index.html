@@ -10,20 +10,29 @@
 <body>
   <header class="site-header">
     <h1>BJT Common-Emitter DC Bias</h1>
-    <p>Voltage-Divider Bias · Forward-Active Approximation</p>
+    <p>Voltage Divider · Fixed · Emitter Bias — Forward-Active Approximation</p>
   </header>
 
   <main class="layout">
     <section class="panel" aria-labelledby="input-heading">
       <h2 id="input-heading">ค่าอุปกรณ์</h2>
       <form id="bias-form" method="post" action="/calculate" novalidate>
-        <div class="field">
+        <div class="field" data-modes="divider fixed emitter">
+          <label for="mode">โหมดไบอัส</label>
+          <select id="mode" name="mode">
+            <option value="divider" selected>Voltage Divider Bias</option>
+            <option value="fixed">Fixed Bias</option>
+            <option value="emitter">Emitter Bias</option>
+          </select>
+        </div>
+
+        <div class="field" data-modes="divider fixed emitter">
           <label for="vcc">VCC (V)</label>
           <input id="vcc" name="vcc" type="number" step="any" min="0"
                  inputmode="decimal" required>
         </div>
 
-        <div class="field">
+        <div class="field" data-modes="divider">
           <label for="r1">R1 (VCC → Base)</label>
           <div class="input-row">
             <input id="r1" name="r1" type="number" step="any" min="0"
@@ -35,7 +44,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" data-modes="divider">
           <label for="r2">R2 (Base → GND)</label>
           <div class="input-row">
             <input id="r2" name="r2" type="number" step="any" min="0"
@@ -47,7 +56,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" data-modes="divider fixed emitter">
           <label for="rc">RC (VCC → Collector)</label>
           <div class="input-row">
             <input id="rc" name="rc" type="number" step="any" min="0"
@@ -59,7 +68,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" data-modes="divider emitter">
           <label for="re">RE (Emitter → GND)</label>
           <div class="input-row">
             <input id="re" name="re" type="number" step="any" min="0"
@@ -71,13 +80,25 @@
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" data-modes="fixed emitter" hidden>
+          <label for="rb">RB (VCC → Base)</label>
+          <div class="input-row">
+            <input id="rb" name="rb" type="number" step="any" min="0"
+                   inputmode="decimal">
+            <select name="rb_unit" aria-label="หน่วยของ RB">
+              <option value="kohm" selected>kΩ</option>
+              <option value="ohm">Ω</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field" data-modes="divider fixed emitter">
           <label for="beta">β (hFE)</label>
           <input id="beta" name="beta" type="number" step="any" min="0"
                  inputmode="decimal" required>
         </div>
 
-        <div class="field">
+        <div class="field" data-modes="divider fixed emitter">
           <label for="vbe">VBE (V)</label>
           <input id="vbe" name="vbe" type="number" step="any" min="0" max="2"
                  inputmode="decimal" required>
@@ -94,6 +115,7 @@
         กรอกค่าอุปกรณ์แล้วกด Calculate DC Bias
       </p>
       <div id="results" hidden>
+        <p id="result-mode" class="result-mode"></p>
         <p id="region-badge" class="badge"></p>
         <div id="warnings" class="warnings" hidden></div>
         <div id="result-tables"></div>
