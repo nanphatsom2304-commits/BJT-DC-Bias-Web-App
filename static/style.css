@@ -90,7 +90,8 @@ body {
   outline-offset: 1px;
 }
 
-.field input[aria-invalid="true"] {
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
   border-color: var(--red);
 }
 
@@ -142,6 +143,13 @@ body {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+.result-mode {
+  margin: 0 0 8px;
+  color: #155a78;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .badge {
