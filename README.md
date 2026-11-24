@@ -59,7 +59,7 @@ $env:NGSPICE_BIN="C:\path\to\Spice64\bin\ngspice_con.exe"
 ```powershell
 .venv\Scripts\python.exe -m flask --app app run --debug
 ```
-เปิด <http://127.0.0.1:5000/>
+เปิด <http://127.0.0.1:5001/>
 
 > Flask dev server ใช้สำหรับพัฒนา/ทดสอบในเครื่องเท่านั้น
 
