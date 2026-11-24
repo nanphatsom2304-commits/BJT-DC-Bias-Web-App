@@ -3,19 +3,199 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BJT DC Bias Calculator — ENG29 2121</title>
+  <title>BJT CE Amplifier Simulator — ENG29 2121</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
   <header class="site-header">
-    <h1>BJT Common-Emitter DC Bias</h1>
-    <p>Voltage Divider · Fixed · Emitter Bias — Forward-Active Approximation</p>
+    <div class="header-inner">
+      <div class="header-copy">
+        <p class="eyebrow">ENG29 2121 · Lab 04</p>
+        <h1>BJT Common-Emitter Amplifier Simulator</h1>
+        <p class="subtitle">
+          ngspice DC / AC / Transient · Voltage-divider reference stage
+          · ต่อยอดจาก DC Bias Calculator ของ Lab 03
+        </p>
+      </div>
+      <p id="engine-badge" class="engine-badge" data-state="checking" role="status">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="engine-text">กำลังตรวจสอบ ngspice…</span>
+      </p>
+    </div>
   </header>
 
-  <main class="layout">
-    <section class="panel" aria-labelledby="input-heading">
-      <h2 id="input-heading">ค่าอุปกรณ์</h2>
+  <main class="page">
+    <section class="panel" aria-labelledby="sim-input-heading">
+      <h2 id="sim-input-heading"><span class="step">1</span> วงจรและแหล่งสัญญาณ</h2>
+      <p class="panel-note">
+        วงจรอ้างอิงเดียว: CE voltage divider + T2N2222 ทุกค่าส่งเข้า ngspice จริง
+      </p>
+
+      <form id="sim-form" novalidate>
+        <fieldset class="segmented" id="analysis-group">
+          <legend>โหมดวิเคราะห์</legend>
+          <label>
+            <input type="radio" name="sim_analysis" value="dc" checked>
+            <span>DC (.op)</span>
+          </label>
+          <label>
+            <input type="radio" name="sim_analysis" value="ac">
+            <span>AC (.ac)</span>
+          </label>
+          <label>
+            <input type="radio" name="sim_analysis" value="tran">
+            <span>Transient (.tran)</span>
+          </label>
+        </fieldset>
+
+        <div class="field-grid">
+          <div class="field">
+            <label for="sim_vcc">VCC (V)</label>
+            <input id="sim_vcc" name="sim_vcc" type="number" step="any" min="0.1"
+                   inputmode="decimal" value="12" required>
+          </div>
+
+          <div class="field">
+            <label for="sim_r1">R1 (VCC → Base)</label>
+            <div class="input-row">
+              <input id="sim_r1" name="sim_r1" type="number" step="any" min="0"
+                     inputmode="decimal" value="100" required>
+              <select name="sim_r1_unit" aria-label="หน่วยของ R1">
+                <option value="kohm" selected>kΩ</option>
+                <option value="ohm">Ω</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_r2">R2 (Base → GND)</label>
+            <div class="input-row">
+              <input id="sim_r2" name="sim_r2" type="number" step="any" min="0"
+                     inputmode="decimal" value="22" required>
+              <select name="sim_r2_unit" aria-label="หน่วยของ R2">
+                <option value="kohm" selected>kΩ</option>
+                <option value="ohm">Ω</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_rc">RC (VCC → Collector)</label>
+            <div class="input-row">
+              <input id="sim_rc" name="sim_rc" type="number" step="any" min="0"
+                     inputmode="decimal" value="2.2" required>
+              <select name="sim_rc_unit" aria-label="หน่วยของ RC">
+                <option value="kohm" selected>kΩ</option>
+                <option value="ohm">Ω</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_re">RE (Emitter → GND)</label>
+            <div class="input-row">
+              <input id="sim_re" name="sim_re" type="number" step="any" min="0"
+                     inputmode="decimal" value="1" required>
+              <select name="sim_re_unit" aria-label="หน่วยของ RE">
+                <option value="kohm" selected>kΩ</option>
+                <option value="ohm">Ω</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_rl">RL (Load)</label>
+            <div class="input-row">
+              <input id="sim_rl" name="sim_rl" type="number" step="any" min="0"
+                     inputmode="decimal" value="10" required>
+              <select name="sim_rl_unit" aria-label="หน่วยของ RL">
+                <option value="kohm" selected>kΩ</option>
+                <option value="ohm">Ω</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_cin">CIN (Coupling)</label>
+            <div class="input-row">
+              <input id="sim_cin" name="sim_cin" type="number" step="any" min="0"
+                     inputmode="decimal" value="10" required>
+              <select name="sim_cin_unit" aria-label="หน่วยของ CIN">
+                <option value="uf" selected>µF</option>
+                <option value="nf">nF</option>
+                <option value="f">F</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_cout">COUT (Coupling)</label>
+            <div class="input-row">
+              <input id="sim_cout" name="sim_cout" type="number" step="any" min="0"
+                     inputmode="decimal" value="10" required>
+              <select name="sim_cout_unit" aria-label="หน่วยของ COUT">
+                <option value="uf" selected>µF</option>
+                <option value="nf">nF</option>
+                <option value="f">F</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="sim_amp_mv">แหล่งสัญญาณ (mV peak)</label>
+            <input id="sim_amp_mv" name="sim_amp_mv" type="number" step="any" min="0.1"
+                   inputmode="decimal" value="10" required>
+          </div>
+
+          <div class="field">
+            <label for="sim_freq_hz">ความถี่ (Hz)</label>
+            <input id="sim_freq_hz" name="sim_freq_hz" type="number" step="any" min="10"
+                   inputmode="decimal" value="1000" required>
+          </div>
+        </div>
+
+        <p id="sim-hint" class="hint">
+          DC ใช้ค่าอุปกรณ์เท่านั้น · AC วัด Gain แบบ normalized (แหล่ง 1 V) ·
+          Transient ใช้แอมพลิจูดและความถี่ที่กรอก
+        </p>
+
+        <p id="sim-errors" class="form-errors" role="alert" hidden></p>
+        <button id="sim-submit" type="submit" class="primary">Run ngspice</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="sim-result-heading">
+      <h2 id="sim-result-heading"><span class="step">2</span> ผลจาก ngspice</h2>
+      <p id="sim-placeholder" class="placeholder">
+        ตั้งค่าอุปกรณ์แล้วกด Run ngspice — ผลทุกค่าอ่านจาก output จริงของ ngspice
+      </p>
+
+      <div id="sim-results" hidden aria-live="polite">
+        <div class="run-meta">
+          <span id="sim-analysis-label" class="chip chip-strong"></span>
+          <span id="sim-engine-meta" class="chip"></span>
+          <span id="sim-run-meta" class="chip"></span>
+        </div>
+
+        <div id="sim-summary" class="summary-grid"></div>
+        <div id="sim-charts" class="charts"></div>
+        <div id="sim-tables" class="result-tables"></div>
+        <div id="sim-warnings" class="warnings" hidden></div>
+
+        <details class="provenance">
+          <summary>Netlist · โมเดล BJT · ข้อมูล engine</summary>
+          <p id="sim-model" class="model-note"></p>
+          <pre id="sim-netlist" tabindex="0"></pre>
+        </details>
+      </div>
+    </section>
+
+    <section class="panel panel-muted lab3-panel" aria-labelledby="input-heading">
+      <h2 id="input-heading"><span class="step step-muted">Lab 03</span> DC Bias Calculator</h2>
+      <p class="panel-note">
+        เครื่องคิดเลขเดิมจาก Lab 03 (สามโหมด) ยังใช้สมการ β คงที่ และไม่เรียก ngspice
+      </p>
       <form id="bias-form" method="post" action="/calculate" novalidate>
         <div class="field" data-modes="divider fixed emitter">
           <label for="mode">โหมดไบอัส</label>
@@ -109,8 +289,8 @@
       </form>
     </section>
 
-    <section class="panel" aria-labelledby="result-heading">
-      <h2 id="result-heading">DC Bias Results</h2>
+    <section class="panel panel-muted" aria-labelledby="result-heading">
+      <h2 id="result-heading"><span class="step step-muted">Lab 03</span> DC Bias Results</h2>
       <p id="results-placeholder" class="placeholder">
         กรอกค่าอุปกรณ์แล้วกด Calculate DC Bias
       </p>
