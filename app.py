@@ -3,6 +3,7 @@ from dataclasses import fields
 
 from flask import Flask, Response, jsonify, render_template, request
 
+import spice_engine
 from dc_bias import (
     DcBiasInputs,
     DcBiasResult,
@@ -15,6 +16,10 @@ from dc_bias import (
 )
 
 app = Flask(__name__)
+
+# Lab 3 analytical reference for the same circuit: constant beta and VBE.
+REFERENCE_BETA = 100.0
+REFERENCE_VBE_V = 0.70
 
 _RESULT_FLOATS = (
     "vth_v",
@@ -33,6 +38,89 @@ _RESULT_FLOATS = (
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+@app.get("/api/engine")
+def engine_status():
+    """Report whether ngspice is usable, so the UI can show a truthful badge."""
+    try:
+        data = spice_engine.engine_info()
+    except spice_engine.NgspiceNotFound as exc:
+        return jsonify({
+            "ok": True,
+            "data": {"available": False, "message": str(exc)},
+        })
+    return jsonify({"ok": True, "data": data})
+
+
+@app.post("/api/simulate")
+def simulate():
+    """Run a real ngspice analysis for the reference CE stage."""
+    # The simulator form prefixes its fields with ``sim_`` so the page can host
+    # both the Lab 3 form and this form without duplicate ids or names.
+    raw = {key.removeprefix("sim_"): value for key, value in request.form.items()}
+    analysis = (raw.get("analysis") or "dc").strip().lower()
+
+    inputs, errors = spice_engine.parse_inputs(raw, analysis)
+    if errors:
+        return jsonify({
+            "ok": False,
+            "analysis": analysis,
+            "errors": errors,
+            "message": "กรุณาตรวจสอบค่าที่ป้อน",
+        }), 400
+
+    try:
+        data = spice_engine.run_analysis(inputs, analysis)
+    except spice_engine.NgspiceNotFound as exc:
+        return jsonify({
+            "ok": False,
+            "analysis": analysis,
+            "engine_unavailable": True,
+            "message": str(exc),
+        }), 503
+    except spice_engine.SpiceError as exc:
+        return jsonify({
+            "ok": False,
+            "analysis": analysis,
+            "message": str(exc),
+        }), 502
+
+    data["reference"] = _analytical_reference(inputs)
+    return jsonify({"ok": True, "data": data})
+
+
+def _analytical_reference(inputs: spice_engine.AmplifierInputs) -> dict:
+    """Lab 3 closed-form DC bias for the same resistor values (beta=100, VBE=0.70 V)."""
+    reference_inputs = DcBiasInputs(
+        vcc_v=inputs.vcc_v,
+        r1_ohm=inputs.r1_ohm,
+        r2_ohm=inputs.r2_ohm,
+        rc_ohm=inputs.rc_ohm,
+        re_ohm=inputs.re_ohm,
+        beta=REFERENCE_BETA,
+        vbe_v=REFERENCE_VBE_V,
+    )
+    result = calculate_dc_bias(reference_inputs)
+    return {
+        "assumptions": {
+            "beta": REFERENCE_BETA,
+            "vbe_v": REFERENCE_VBE_V,
+            "note": "สมการ Lab 3 (β คงที่, VBE คงที่) ใช้เป็นค่าอ้างอิงเทียบกับ ngspice",
+        },
+        "operating_point": {
+            "vb_v": result.vb_v,
+            "ve_v": result.ve_v,
+            "vc_v": result.vc_v,
+            "vce_v": result.vce_v,
+            "ic_a": result.ic_a,
+            "ib_a": result.ib_a,
+            "ie_a": result.ie_a,
+        },
+        "vth_v": result.vth_v,
+        "rth_ohm": result.rth_ohm,
+        "region": result.region,
+    }
 
 
 @app.post("/calculate")
